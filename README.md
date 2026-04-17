@@ -90,6 +90,6 @@ AI: Google Gemini API
 - Database → MongoDB Atlas
 
 ## Team
-Butera Abdulaziz (Team-leader)
-Ingabire Alain
-Byiringiro Heritier
+1. Butera Abdulaziz (Team-leader)
+2. Ingabire Alain
+3. Byiringiro Heritier
