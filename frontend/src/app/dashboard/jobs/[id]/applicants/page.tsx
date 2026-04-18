@@ -139,7 +139,8 @@ export default function ApplicantsPage() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 + i * 0.05 }}
-                className="flex items-start justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                onClick={() => router.push(`/dashboard/jobs/${jobId}/applicants/${a._id}`)}
+className="flex items-start justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer"
               >
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   {/* Avatar with initials */}

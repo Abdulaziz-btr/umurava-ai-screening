@@ -7,18 +7,14 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Attach token to every request
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// Handle 401 responses
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -31,7 +27,7 @@ api.interceptors.response.use(
   }
 );
 
-// ── Auth ──
+// Auth
 export const authAPI = {
   register: (data: { email: string; password: string; fullName: string; company?: string }) =>
     api.post("/auth/register", data),
@@ -40,17 +36,16 @@ export const authAPI = {
   getProfile: () => api.get("/auth/profile"),
 };
 
-// ── Jobs ──
+// Jobs
 export const jobsAPI = {
-  create: (data: { title: string; description: string; requirements: any }) =>
-    api.post("/jobs", data),
+  create: (data: any) => api.post("/jobs", data),
   getAll: () => api.get("/jobs"),
   getById: (id: string) => api.get(`/jobs/${id}`),
   update: (id: string, data: any) => api.put(`/jobs/${id}`, data),
   delete: (id: string) => api.delete(`/jobs/${id}`),
 };
 
-// ── Applicants ──
+// Applicants
 export const applicantsAPI = {
   add: (jobId: string, applicants: any[]) =>
     api.post(`/jobs/${jobId}/applicants`, { applicants }),
@@ -62,9 +57,15 @@ export const applicantsAPI = {
     });
   },
   getAll: (jobId: string) => api.get(`/jobs/${jobId}/applicants`),
+  getById: (jobId: string, applicantId: string) =>
+    api.get(`/jobs/${jobId}/applicants/${applicantId}`),
+  update: (jobId: string, applicantId: string, profileData: any) =>
+    api.put(`/jobs/${jobId}/applicants/${applicantId}`, { profileData }),
+  delete: (jobId: string, applicantId: string) =>
+    api.delete(`/jobs/${jobId}/applicants/${applicantId}`),
 };
 
-// ── Screening ──
+// Screening
 export const screeningAPI = {
   trigger: (jobId: string, shortlistSize: number = 10) =>
     api.post(`/jobs/${jobId}/screen`, { shortlistSize }),
