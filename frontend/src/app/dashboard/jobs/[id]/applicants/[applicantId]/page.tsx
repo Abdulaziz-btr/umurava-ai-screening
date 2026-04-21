@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { applicantsAPI } from "@/lib/api";
 import toast from "react-hot-toast";
-import { ArrowLeft, ChevronRight, Edit3, Save, X, AlertTriangle, CheckCircle, User, Briefcase, GraduationCap, Code, Award, FolderOpen, Clock, Link2, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Edit3, Save, X, AlertTriangle, CheckCircle, User, Briefcase, GraduationCap, Code, Award, FolderOpen, Clock, Link2, Plus, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced", "Expert"];
@@ -132,7 +132,7 @@ export default function ApplicantProfilePage() {
         <span className="text-gray-900 font-medium">{profile.firstName} {profile.lastName}</span>
       </div>
 
-      {/* Header with completeness */}
+      {/* Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
         className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
         <div className="flex items-start justify-between">
@@ -156,8 +156,6 @@ export default function ApplicantProfilePage() {
               </div>
             </div>
           </div>
-
-          {/* Edit / Save buttons */}
           <div className="flex gap-2">
             {editing ? (
               <>
@@ -206,7 +204,6 @@ export default function ApplicantProfilePage() {
         )}
       </motion.div>
 
-      {/* Schema sections */}
       <div className="space-y-4">
 
         {/* Section 1: Basic Info */}
@@ -229,15 +226,15 @@ export default function ApplicantProfilePage() {
           ) : (
             <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
               <div><span className="text-gray-500">Name:</span> <span className="text-gray-900 font-medium ml-1">{profile.firstName} {profile.lastName}</span></div>
-              <div><span className="text-gray-500">Email:</span> <span className="text-gray-900 ml-1">{profile.email || "—"}</span></div>
-              <div><span className="text-gray-500">Location:</span> <span className="text-gray-900 ml-1">{profile.location || "—"}</span></div>
-              <div><span className="text-gray-500">Headline:</span> <span className="text-gray-900 ml-1">{profile.headline || "—"}</span></div>
+              <div><span className="text-gray-500">Email:</span> <span className="text-gray-900 ml-1">{profile.email || "\u2014"}</span></div>
+              <div><span className="text-gray-500">Location:</span> <span className="text-gray-900 ml-1">{profile.location || "\u2014"}</span></div>
+              <div><span className="text-gray-500">Headline:</span> <span className="text-gray-900 ml-1">{profile.headline || "\u2014"}</span></div>
               {profile.bio && <div className="col-span-2"><span className="text-gray-500">Bio:</span> <span className="text-gray-700 ml-1">{profile.bio}</span></div>}
             </div>
           )}
         </motion.div>
 
-        {/* Section 2: Skills */}
+        {/* Section 2: Skills — FIXED GRID LAYOUT */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
@@ -255,24 +252,34 @@ export default function ApplicantProfilePage() {
           </div>
           {editing ? (
             <div className="space-y-2">
+              {/* Column headers */}
+              <div className="grid grid-cols-12 gap-2 text-xs text-gray-500 font-medium px-1">
+                <span className="col-span-5">Skill name</span>
+                <span className="col-span-3">Level</span>
+                <span className="col-span-3">Years</span>
+                <span className="col-span-1"></span>
+              </div>
               {(editData.skills || []).map((s: any, i: number) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input className={`${inputClass} flex-1`} placeholder="Skill name" value={s.name || ""} onChange={(e) => updateArrayItem("skills", i, "name", e.target.value)} />
-                  <select className={`${inputClass} w-36`} value={s.level || "Intermediate"} onChange={(e) => updateArrayItem("skills", i, "level", e.target.value)}>
+                <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                  <input className={`${inputClass} col-span-5`} placeholder="e.g. React, Python, SQL" value={s.name || ""} onChange={(e) => updateArrayItem("skills", i, "name", e.target.value)} />
+                  <select className={`${inputClass} col-span-3`} value={s.level || "Intermediate"} onChange={(e) => updateArrayItem("skills", i, "level", e.target.value)}>
                     {SKILL_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                   </select>
-                  <input className={`${inputClass} w-20`} type="number" min={0} max={30} placeholder="Yrs" value={s.yearsOfExperience || 0} onChange={(e) => updateArrayItem("skills", i, "yearsOfExperience", parseInt(e.target.value) || 0)} />
-                  <button onClick={() => removeArrayItem("skills", i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                  <input className={`${inputClass} col-span-3`} type="number" min={0} max={30} placeholder="Years" value={s.yearsOfExperience || 0} onChange={(e) => updateArrayItem("skills", i, "yearsOfExperience", parseInt(e.target.value) || 0)} />
+                  <button onClick={() => removeArrayItem("skills", i)} className="p-1 text-red-400 hover:text-red-600 col-span-1 flex justify-center"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
+              {(!editData.skills || editData.skills.length === 0) && (
+                <p className="text-sm text-gray-400 italic text-center py-2">No skills yet. Click "+ Add skill" above.</p>
+              )}
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               {(profile.skills || []).map((s: any, i: number) => (
                 <span key={i} className="px-3 py-1.5 bg-purple-50 text-purple-800 text-sm rounded-lg border border-purple-100">
                   <span className="font-medium">{s.name}</span>
-                  <span className="text-purple-500 ml-1">· {s.level}</span>
-                  <span className="text-purple-400 ml-1">· {s.yearsOfExperience} yrs</span>
+                  <span className="text-purple-500 ml-1">\u00B7 {s.level}</span>
+                  <span className="text-purple-400 ml-1">\u00B7 {s.yearsOfExperience} yrs</span>
                 </span>
               ))}
               {(!profile.skills || profile.skills.length === 0) && <span className="text-sm text-gray-400 italic">No skills listed</span>}
@@ -300,17 +307,22 @@ export default function ApplicantProfilePage() {
             <div className="space-y-4">
               {(editData.experience || []).map((exp: any, i: number) => (
                 <div key={i} className="p-3 bg-gray-50 rounded-lg space-y-2">
-                  <div className="flex justify-between"><span className="text-xs font-medium text-gray-500">Experience {i + 1}</span>
-                    <button onClick={() => removeArrayItem("experience", i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button></div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input className={inputClass} placeholder="Company" value={exp.company || ""} onChange={(e) => updateArrayItem("experience", i, "company", e.target.value)} />
-                    <input className={inputClass} placeholder="Role" value={exp.role || ""} onChange={(e) => updateArrayItem("experience", i, "role", e.target.value)} />
-                    <input className={inputClass} placeholder="Start (YYYY-MM)" value={exp.startDate || ""} onChange={(e) => updateArrayItem("experience", i, "startDate", e.target.value)} />
-                    <input className={inputClass} placeholder="End (YYYY-MM or Present)" value={exp.endDate || ""} onChange={(e) => updateArrayItem("experience", i, "endDate", e.target.value)} />
+                  <div className="flex justify-between">
+                    <span className="text-xs font-medium text-gray-500">Experience {i + 1}</span>
+                    <button onClick={() => removeArrayItem("experience", i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
-                  <textarea className={inputClass} rows={2} placeholder="Description" value={exp.description || ""} onChange={(e) => updateArrayItem("experience", i, "description", e.target.value)} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><label className={labelClass}>Company</label><input className={inputClass} placeholder="Company name" value={exp.company || ""} onChange={(e) => updateArrayItem("experience", i, "company", e.target.value)} /></div>
+                    <div><label className={labelClass}>Role</label><input className={inputClass} placeholder="Job title" value={exp.role || ""} onChange={(e) => updateArrayItem("experience", i, "role", e.target.value)} /></div>
+                    <div><label className={labelClass}>Start date</label><input className={inputClass} placeholder="YYYY-MM" value={exp.startDate || ""} onChange={(e) => updateArrayItem("experience", i, "startDate", e.target.value)} /></div>
+                    <div><label className={labelClass}>End date</label><input className={inputClass} placeholder="YYYY-MM or Present" value={exp.endDate || ""} onChange={(e) => updateArrayItem("experience", i, "endDate", e.target.value)} /></div>
+                  </div>
+                  <div><label className={labelClass}>Description</label><textarea className={inputClass} rows={2} placeholder="What did you do in this role?" value={exp.description || ""} onChange={(e) => updateArrayItem("experience", i, "description", e.target.value)} /></div>
                 </div>
               ))}
+              {(!editData.experience || editData.experience.length === 0) && (
+                <p className="text-sm text-gray-400 italic text-center py-2">No experience yet. Click "+ Add experience" above.</p>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -319,7 +331,7 @@ export default function ApplicantProfilePage() {
                   <div className="w-2 h-2 mt-2 rounded-full bg-green-500 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{exp.role} <span className="font-normal text-gray-500">at {exp.company}</span></p>
-                    <p className="text-xs text-gray-500">{exp.startDate} — {exp.endDate || "Present"} {exp.isCurrent && <span className="text-green-600 ml-1">(Current)</span>}</p>
+                    <p className="text-xs text-gray-500">{exp.startDate} \u2014 {exp.endDate || "Present"} {exp.isCurrent && <span className="text-green-600 ml-1">(Current)</span>}</p>
                     {exp.description && <p className="text-sm text-gray-600 mt-1">{exp.description}</p>}
                     {exp.technologies?.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -356,19 +368,24 @@ export default function ApplicantProfilePage() {
             <div className="space-y-3">
               {(editData.education || []).map((edu: any, i: number) => (
                 <div key={i} className="p-3 bg-gray-50 rounded-lg">
-                  <div className="flex justify-between mb-2"><span className="text-xs font-medium text-gray-500">Education {i + 1}</span>
-                    <button onClick={() => removeArrayItem("education", i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-500">Education {i + 1}</span>
+                    <button onClick={() => removeArrayItem("education", i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <input className={inputClass} placeholder="Institution" value={edu.institution || ""} onChange={(e) => updateArrayItem("education", i, "institution", e.target.value)} />
-                    <input className={inputClass} placeholder="Degree" value={edu.degree || ""} onChange={(e) => updateArrayItem("education", i, "degree", e.target.value)} />
-                    <input className={inputClass} placeholder="Field of study" value={edu.fieldOfStudy || ""} onChange={(e) => updateArrayItem("education", i, "fieldOfStudy", e.target.value)} />
-                    <div className="flex gap-2">
-                      <input className={inputClass} type="number" placeholder="Start year" value={edu.startYear || ""} onChange={(e) => updateArrayItem("education", i, "startYear", parseInt(e.target.value) || 0)} />
-                      <input className={inputClass} type="number" placeholder="End year" value={edu.endYear || ""} onChange={(e) => updateArrayItem("education", i, "endYear", parseInt(e.target.value) || 0)} />
+                    <div><label className={labelClass}>Institution</label><input className={inputClass} placeholder="University name" value={edu.institution || ""} onChange={(e) => updateArrayItem("education", i, "institution", e.target.value)} /></div>
+                    <div><label className={labelClass}>Degree</label><input className={inputClass} placeholder="Bachelor's, Master's, etc." value={edu.degree || ""} onChange={(e) => updateArrayItem("education", i, "degree", e.target.value)} /></div>
+                    <div><label className={labelClass}>Field of study</label><input className={inputClass} placeholder="Computer Science, etc." value={edu.fieldOfStudy || ""} onChange={(e) => updateArrayItem("education", i, "fieldOfStudy", e.target.value)} /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><label className={labelClass}>Start year</label><input className={inputClass} type="number" value={edu.startYear || ""} onChange={(e) => updateArrayItem("education", i, "startYear", parseInt(e.target.value) || 0)} /></div>
+                      <div><label className={labelClass}>End year</label><input className={inputClass} type="number" value={edu.endYear || ""} onChange={(e) => updateArrayItem("education", i, "endYear", parseInt(e.target.value) || 0)} /></div>
                     </div>
                   </div>
                 </div>
               ))}
+              {(!editData.education || editData.education.length === 0) && (
+                <p className="text-sm text-gray-400 italic text-center py-2">No education yet. Click "+ Add education" above.</p>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
@@ -377,7 +394,7 @@ export default function ApplicantProfilePage() {
                   <div className="w-2 h-2 mt-2 rounded-full bg-amber-500 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{edu.degree} in {edu.fieldOfStudy}</p>
-                    <p className="text-xs text-gray-500">{edu.institution} · {edu.startYear}–{edu.endYear}</p>
+                    <p className="text-xs text-gray-500">{edu.institution} \u00B7 {edu.startYear}\u2013{edu.endYear}</p>
                   </div>
                 </div>
               ))}
@@ -406,16 +423,21 @@ export default function ApplicantProfilePage() {
             <div className="space-y-3">
               {(editData.projects || []).map((proj: any, i: number) => (
                 <div key={i} className="p-3 bg-gray-50 rounded-lg space-y-2">
-                  <div className="flex justify-between"><span className="text-xs font-medium text-gray-500">Project {i + 1}</span>
-                    <button onClick={() => removeArrayItem("projects", i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button></div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input className={inputClass} placeholder="Project name" value={proj.name || ""} onChange={(e) => updateArrayItem("projects", i, "name", e.target.value)} />
-                    <input className={inputClass} placeholder="Your role" value={proj.role || ""} onChange={(e) => updateArrayItem("projects", i, "role", e.target.value)} />
+                  <div className="flex justify-between">
+                    <span className="text-xs font-medium text-gray-500">Project {i + 1}</span>
+                    <button onClick={() => removeArrayItem("projects", i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
-                  <textarea className={inputClass} rows={2} placeholder="Description" value={proj.description || ""} onChange={(e) => updateArrayItem("projects", i, "description", e.target.value)} />
-                  <input className={inputClass} placeholder="Link (optional)" value={proj.link || ""} onChange={(e) => updateArrayItem("projects", i, "link", e.target.value)} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><label className={labelClass}>Project name</label><input className={inputClass} placeholder="e.g. E-commerce Platform" value={proj.name || ""} onChange={(e) => updateArrayItem("projects", i, "name", e.target.value)} /></div>
+                    <div><label className={labelClass}>Your role</label><input className={inputClass} placeholder="e.g. Frontend Lead" value={proj.role || ""} onChange={(e) => updateArrayItem("projects", i, "role", e.target.value)} /></div>
+                  </div>
+                  <div><label className={labelClass}>Description</label><textarea className={inputClass} rows={2} placeholder="What did you build? What was the impact?" value={proj.description || ""} onChange={(e) => updateArrayItem("projects", i, "description", e.target.value)} /></div>
+                  <div><label className={labelClass}>Link (optional)</label><input className={inputClass} placeholder="https://github.com/..." value={proj.link || ""} onChange={(e) => updateArrayItem("projects", i, "link", e.target.value)} /></div>
                 </div>
               ))}
+              {(!editData.projects || editData.projects.length === 0) && (
+                <p className="text-sm text-gray-400 italic text-center py-2">No projects yet. Click "+ Add project" above.</p>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -455,13 +477,13 @@ export default function ApplicantProfilePage() {
             <div className="grid grid-cols-2 gap-3">
               <div><label className={labelClass}>Status</label>
                 <select className={inputClass} value={editData.availability?.status || ""} onChange={(e) => updateField("availability.status", e.target.value)}>
-                  <option value="">Select</option>
+                  <option value="">Select status</option>
                   {AVAILABILITY_STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div><label className={labelClass}>Type</label>
                 <select className={inputClass} value={editData.availability?.type || ""} onChange={(e) => updateField("availability.type", e.target.value)}>
-                  <option value="">Select</option>
+                  <option value="">Select type</option>
                   {AVAILABILITY_TYPE.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
@@ -478,7 +500,7 @@ export default function ApplicantProfilePage() {
           )}
         </motion.div>
 
-        {/* Section 7: Certifications (optional) */}
+        {/* Section 7: Certifications — FIXED GRID LAYOUT */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
           className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
@@ -495,20 +517,29 @@ export default function ApplicantProfilePage() {
           </div>
           {editing ? (
             <div className="space-y-2">
+              <div className="grid grid-cols-12 gap-2 text-xs text-gray-500 font-medium px-1">
+                <span className="col-span-5">Certification name</span>
+                <span className="col-span-4">Issuer</span>
+                <span className="col-span-2">Date</span>
+                <span className="col-span-1"></span>
+              </div>
               {(editData.certifications || []).map((cert: any, i: number) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input className={`${inputClass} flex-1`} placeholder="Certification name" value={cert.name || ""} onChange={(e) => updateArrayItem("certifications", i, "name", e.target.value)} />
-                  <input className={`${inputClass} w-32`} placeholder="Issuer" value={cert.issuer || ""} onChange={(e) => updateArrayItem("certifications", i, "issuer", e.target.value)} />
-                  <input className={`${inputClass} w-28`} placeholder="YYYY-MM" value={cert.issueDate || ""} onChange={(e) => updateArrayItem("certifications", i, "issueDate", e.target.value)} />
-                  <button onClick={() => removeArrayItem("certifications", i)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                  <input className={`${inputClass} col-span-5`} placeholder="e.g. AWS Certified Developer" value={cert.name || ""} onChange={(e) => updateArrayItem("certifications", i, "name", e.target.value)} />
+                  <input className={`${inputClass} col-span-4`} placeholder="e.g. Amazon" value={cert.issuer || ""} onChange={(e) => updateArrayItem("certifications", i, "issuer", e.target.value)} />
+                  <input className={`${inputClass} col-span-2`} placeholder="YYYY-MM" value={cert.issueDate || ""} onChange={(e) => updateArrayItem("certifications", i, "issueDate", e.target.value)} />
+                  <button onClick={() => removeArrayItem("certifications", i)} className="p-1 text-red-400 hover:text-red-600 col-span-1 flex justify-center"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
+              {(!editData.certifications || editData.certifications.length === 0) && (
+                <p className="text-sm text-gray-400 italic text-center py-2">No certifications yet. Click "+ Add certification" above.</p>
+              )}
             </div>
           ) : (
-            <div>
+            <div className="space-y-2">
               {(profile.certifications || []).map((cert: any, i: number) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
-                  <Award className="w-4 h-4 text-amber-500" />
+                  <Award className="w-4 h-4 text-amber-500 flex-shrink-0" />
                   <span className="font-medium text-gray-900">{cert.name}</span>
                   <span className="text-gray-500">by {cert.issuer}</span>
                   {cert.issueDate && <span className="text-gray-400">({cert.issueDate})</span>}
@@ -519,7 +550,7 @@ export default function ApplicantProfilePage() {
           )}
         </motion.div>
 
-        {/* Section 8: Social Links (optional) */}
+        {/* Section 8: Social Links */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
           className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-4">

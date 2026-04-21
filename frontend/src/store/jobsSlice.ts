@@ -140,7 +140,7 @@ const jobsSlice = createSlice({
     builder.addCase(triggerScreening.rejected, (state, action) => { state.screeningLoading = false; state.error = action.payload as string; });
 
     // Fetch results
-    builder.addCase(fetchScreeningResults.fulfilled, (state, action) => { state.screeningResults = action.payload; });
+    builder.addCase(fetchScreeningResults.fulfilled, (state, action) => { state.screeningResults = action.payload.results || action.payload; });
   },
 });
 
