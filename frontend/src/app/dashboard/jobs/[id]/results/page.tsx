@@ -22,10 +22,12 @@ export default function ResultsPage() {
 
   const results = Array.isArray(screeningResults) ? screeningResults[0] : screeningResults;
   const allCandidates = results?.candidates || [];
-const candidates = allCandidates.filter((c: any) => {
-  const a = c.applicantId;
-  return typeof a === "object" && a?.profileData?.firstName;
-});
+const candidates = allCandidates
+  .filter((c: any) => {
+    const a = c.applicantId;
+    return typeof a === "object" && a?.profileData?.firstName;
+  })
+  .map((c: any, i: number) => ({ ...c, rank: i + 1 }));
   const poolInsights = results?.poolInsights;
   const weights = results?.weights;
 
