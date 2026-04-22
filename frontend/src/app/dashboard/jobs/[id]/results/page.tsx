@@ -21,7 +21,11 @@ export default function ResultsPage() {
   }, [dispatch, jobId]);
 
   const results = Array.isArray(screeningResults) ? screeningResults[0] : screeningResults;
-  const candidates = results?.candidates || [];
+  const allCandidates = results?.candidates || [];
+const candidates = allCandidates.filter((c: any) => {
+  const a = c.applicantId;
+  return typeof a === "object" && a?.profileData?.firstName;
+});
   const poolInsights = results?.poolInsights;
   const weights = results?.weights;
 
