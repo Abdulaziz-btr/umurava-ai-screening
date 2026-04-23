@@ -1,6 +1,5 @@
 import multer from "multer";
 import path from "path";
-import { config } from "../config";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -12,27 +11,28 @@ const storage = multer.diskStorage({
   },
 });
 
-const fileFilter = (
-  req: any,
-  file: Express.Multer.File,
-  cb: multer.FileFilterCallback
-) => {
+const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedTypes = [
-    "application/pdf",
     "text/csv",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
+    "application/pdf",
+    "application/json",
   ];
 
-  if (allowedTypes.includes(file.mimetype)) {
+  // Also check extension for JSON (some systems report different MIME)
+  const ext = path.extname(file.originalname).toLowerCase();
+  const allowedExts = [".csv", ".xlsx", ".xls", ".pdf", ".json"];
+
+  if (allowedTypes.includes(file.mimetype) || allowedExts.includes(ext)) {
     cb(null, true);
   } else {
-    cb(new Error("Invalid file type. Only PDF, CSV, and Excel files are allowed."));
+    cb(new Error("Invalid file type. Use CSV, Excel, PDF, or JSON."));
   }
 };
 
 export const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: config.maxFileSize },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });

@@ -1,50 +1,32 @@
 import { Response } from "express";
 import { Applicant, Job } from "../models";
 import { AuthRequest } from "../middleware/auth";
-import { parseCSV, parseExcel, parsePDF } from "../services/fileParser";
+import { parseCSV, parseExcel, parsePDF, parseJSON } from "../services/fileParser";
 
-// Schema completeness checker
 function checkProfileCompleteness(profileData: any) {
   const checks = [
-    { section: "Basic Info", fields: ["firstName", "lastName", "email", "headline", "location"],
-      status: "missing" as string, details: [] as string[], optional: false },
-    { section: "Skills", fields: ["skills"],
-      status: "missing" as string, details: [] as string[], optional: false },
-    { section: "Experience", fields: ["experience"],
-      status: "missing" as string, details: [] as string[], optional: false },
-    { section: "Education", fields: ["education"],
-      status: "missing" as string, details: [] as string[], optional: false },
-    { section: "Certifications", fields: ["certifications"],
-      status: "missing" as string, details: [] as string[], optional: true },
-    { section: "Projects", fields: ["projects"],
-      status: "missing" as string, details: [] as string[], optional: false },
-    { section: "Availability", fields: ["availability"],
-      status: "missing" as string, details: [] as string[], optional: false },
-    { section: "Social Links", fields: ["socialLinks"],
-      status: "missing" as string, details: [] as string[], optional: true },
+    { section: "Basic Info", fields: ["firstName", "lastName", "email", "headline", "location"], status: "missing" as string, details: [] as string[], optional: false },
+    { section: "Skills", fields: ["skills"], status: "missing" as string, details: [] as string[], optional: false },
+    { section: "Experience", fields: ["experience"], status: "missing" as string, details: [] as string[], optional: false },
+    { section: "Education", fields: ["education"], status: "missing" as string, details: [] as string[], optional: false },
+    { section: "Certifications", fields: ["certifications"], status: "missing" as string, details: [] as string[], optional: true },
+    { section: "Projects", fields: ["projects"], status: "missing" as string, details: [] as string[], optional: false },
+    { section: "Availability", fields: ["availability"], status: "missing" as string, details: [] as string[], optional: false },
+    { section: "Social Links", fields: ["socialLinks"], status: "missing" as string, details: [] as string[], optional: true },
   ];
 
   checks.forEach((check) => {
     const missing: string[] = [];
     check.fields.forEach((field) => {
       const value = profileData?.[field];
-      if (!value) {
-        missing.push(field);
-      } else if (Array.isArray(value) && value.length === 0) {
-        missing.push(`${field} (empty)`);
-      } else if (typeof value === "object" && !Array.isArray(value)) {
+      if (!value) { missing.push(field); }
+      else if (Array.isArray(value) && value.length === 0) { missing.push(field + " (empty)"); }
+      else if (typeof value === "object" && !Array.isArray(value)) {
         const hasValues = Object.values(value).some((v) => v !== null && v !== undefined && v !== "");
-        if (!hasValues) missing.push(`${field} (empty)`);
+        if (!hasValues) missing.push(field + " (empty)");
       }
     });
-
-    if (missing.length === 0) {
-      check.status = "complete";
-    } else if (missing.length < check.fields.length) {
-      check.status = "partial";
-    } else {
-      check.status = "missing";
-    }
+    check.status = missing.length === 0 ? "complete" : missing.length < check.fields.length ? "partial" : "missing";
     check.details = missing;
   });
 
@@ -52,26 +34,18 @@ function checkProfileCompleteness(profileData: any) {
   const completed = required.filter((c) => c.status === "complete").length;
   const total = required.length;
   const score = Math.round((completed / total) * 100);
-
   const alerts: string[] = [];
   checks.forEach((c) => {
-    if (c.status === "missing" && !c.optional) {
-      alerts.push(`Missing: ${c.section}`);
-    } else if (c.status === "partial") {
-      alerts.push(`Incomplete: ${c.section} (${c.details.join(", ")})`);
-    }
+    if (c.status === "missing" && !c.optional) alerts.push("Missing: " + c.section);
+    else if (c.status === "partial") alerts.push("Incomplete: " + c.section + " (" + c.details.join(", ") + ")");
   });
-
   return { score, completed, total, sections: checks, alerts };
 }
 
-// Check if a candidate has minimum required data
 function hasMinimumData(profileData: any): boolean {
-  const hasName = !!(profileData?.firstName || profileData?.lastName || profileData?.fullName);
-  return hasName;
+  return !!(profileData?.firstName || profileData?.lastName || profileData?.fullName);
 }
 
-// Normalize profile data to ensure consistent structure
 function normalizeProfile(raw: any): any {
   return {
     firstName: raw.firstName || raw.fullName?.split(" ")[0] || "",
@@ -91,64 +65,41 @@ function normalizeProfile(raw: any): any {
   };
 }
 
-// Add applicants via JSON (Umurava structured profiles)
+function getSourceFromMime(mimetype: string, ext: string): string {
+  if (mimetype === "application/pdf") return "pdf_resume";
+  if (mimetype === "application/json" || ext === ".json") return "json_upload";
+  return "csv_upload";
+}
+
+// Add applicants via JSON body (API endpoint)
 export const addApplicants = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: jobId } = req.params;
     const { applicants } = req.body;
-
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
 
-    // Deduplicate by email
-    let added = 0;
-    let updated = 0;
-    let skipped = 0;
-
+    let added = 0, updated = 0, skipped = 0;
     for (const a of applicants) {
       const profile = normalizeProfile(a);
-
-      if (!hasMinimumData(profile)) {
-        skipped++;
-        continue;
-      }
-
+      if (!hasMinimumData(profile)) { skipped++; continue; }
       if (profile.email) {
         const existing = await Applicant.findOne({ jobId, "profileData.email": profile.email });
-        if (existing) {
-          // Update existing candidate
-          existing.profileData = profile;
-          await existing.save();
-          updated++;
-          continue;
-        }
+        if (existing) { existing.profileData = profile; await existing.save(); updated++; continue; }
       }
-
-      await Applicant.create({
-        jobId,
-        source: "umurava_profile",
-        profileData: profile,
-        parsedAt: new Date(),
-      });
+      await Applicant.create({ jobId, source: "umurava_profile", profileData: profile, parsedAt: new Date() });
       added++;
     }
-
-    res.status(201).json({
-      message: `${added} added, ${updated} updated, ${skipped} skipped (insufficient data).`,
-      added,
-      updated,
-      skipped,
-    });
+    res.status(201).json({ message: added + " added, " + updated + " updated, " + skipped + " skipped.", added, updated, skipped });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to add applicants.", details: error.message });
   }
 };
 
-// Upload applicants via file (CSV, Excel, PDF)
+// Upload applicants via file (CSV, Excel, PDF, JSON)
 export const uploadApplicants = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: jobId } = req.params;
-
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
 
@@ -157,15 +108,15 @@ export const uploadApplicants = async (req: AuthRequest, res: Response): Promise
 
     let parsedApplicants: any[] = [];
     let extractionWarnings: string[] = [];
+    const ext = file.originalname.toLowerCase().split(".").pop() || "";
 
-    if (file.mimetype === "text/csv") {
+    if (file.mimetype === "text/csv" || ext === "csv") {
       parsedApplicants = await parseCSV(file.path);
-    } else if (
-      file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-      file.mimetype === "application/vnd.ms-excel"
-    ) {
+    } else if (file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || file.mimetype === "application/vnd.ms-excel" || ext === "xlsx" || ext === "xls") {
       parsedApplicants = parseExcel(file.path);
-    } else if (file.mimetype === "application/pdf") {
+    } else if (file.mimetype === "application/json" || ext === "json") {
+      parsedApplicants = parseJSON(file.path);
+    } else if (file.mimetype === "application/pdf" || ext === "pdf") {
       const parsed = await parsePDF(file.path);
       parsedApplicants = [parsed];
       const p = parsed as any;
@@ -173,38 +124,26 @@ export const uploadApplicants = async (req: AuthRequest, res: Response): Promise
       if (!p.experience || p.experience.length === 0) extractionWarnings.push("Could not extract work experience from PDF");
       if (!p.education || p.education.length === 0) extractionWarnings.push("Could not extract education from PDF");
       if (!p.headline) extractionWarnings.push("Could not extract professional headline from PDF");
+    } else {
+      res.status(400).json({ error: "Unsupported file type. Use CSV, Excel, PDF, or JSON." });
+      return;
     }
 
-    let added = 0;
-    let updated = 0;
-    let skipped = 0;
+    let added = 0, updated = 0, skipped = 0;
     const createdApplicants: any[] = [];
+    const source = getSourceFromMime(file.mimetype, "." + ext);
 
     for (const raw of parsedApplicants) {
-      const profile = normalizeProfile(raw);
+      const profile = source === "json_upload" ? normalizeProfile(raw) : (raw.firstName ? normalizeProfile(raw) : raw);
+      if (!hasMinimumData(profile)) { skipped++; continue; }
 
-      // Skip candidates with no name at all
-      if (!hasMinimumData(profile)) {
-        skipped++;
-        continue;
-      }
-
-      // Deduplicate by email within this job
       if (profile.email) {
         const existing = await Applicant.findOne({ jobId, "profileData.email": profile.email });
-        if (existing) {
-          existing.profileData = profile;
-          await existing.save();
-          updated++;
-          createdApplicants.push(existing);
-          continue;
-        }
+        if (existing) { existing.profileData = profile; await existing.save(); updated++; createdApplicants.push(existing); continue; }
       }
 
       const created = await Applicant.create({
-        jobId,
-        source: file.mimetype === "application/pdf" ? "pdf_resume" : "csv_upload",
-        profileData: profile,
+        jobId, source, profileData: profile,
         rawResumeUrl: file.mimetype === "application/pdf" ? file.path : undefined,
         parsedAt: new Date(),
       });
@@ -212,27 +151,20 @@ export const uploadApplicants = async (req: AuthRequest, res: Response): Promise
       createdApplicants.push(created);
     }
 
-    // Compute completeness for response
     const completenessResults = createdApplicants.map((a: any) => ({
-      id: a._id,
-      name: `${a.profileData.firstName} ${a.profileData.lastName}`.trim(),
+      id: a._id, name: (a.profileData.firstName + " " + a.profileData.lastName).trim(),
       completeness: checkProfileCompleteness(a.profileData),
     }));
-
     const needsReview = completenessResults.filter((r: any) => r.completeness.score < 80);
 
-    // Build response message
     const parts: string[] = [];
-    if (added > 0) parts.push(`${added} new candidate${added > 1 ? "s" : ""} added`);
-    if (updated > 0) parts.push(`${updated} existing candidate${updated > 1 ? "s" : ""} updated`);
-    if (skipped > 0) parts.push(`${skipped} skipped (no name found)`);
+    if (added > 0) parts.push(added + " new candidate" + (added > 1 ? "s" : "") + " added");
+    if (updated > 0) parts.push(updated + " existing candidate" + (updated > 1 ? "s" : "") + " updated");
+    if (skipped > 0) parts.push(skipped + " skipped (no name found)");
 
     res.status(201).json({
       message: parts.join(", ") + ".",
-      added,
-      updated,
-      skipped,
-      total: createdApplicants.length,
+      added, updated, skipped, total: createdApplicants.length,
       applicants: createdApplicants,
       extractionWarnings: extractionWarnings.length > 0 ? extractionWarnings : undefined,
       needsReview: needsReview.length > 0 ? needsReview : undefined,
@@ -246,79 +178,53 @@ export const uploadApplicants = async (req: AuthRequest, res: Response): Promise
 export const getApplicants = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: jobId } = req.params;
-
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
-
     const applicants = await Applicant.find({ jobId }).sort({ createdAt: -1 });
-
-    const enriched = applicants.map((a: any) => ({
-      ...a.toObject(),
-      completeness: checkProfileCompleteness(a.profileData),
-    }));
-
+    const enriched = applicants.map((a: any) => ({ ...a.toObject(), completeness: checkProfileCompleteness(a.profileData) }));
     res.json({ applicants: enriched, count: enriched.length });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to fetch applicants.", details: error.message });
   }
 };
 
-// Get single applicant profile
 export const getApplicantById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: jobId, applicantId } = req.params;
-
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
-
     const applicant = await Applicant.findOne({ _id: applicantId, jobId });
     if (!applicant) { res.status(404).json({ error: "Applicant not found." }); return; }
-
-    const completeness = checkProfileCompleteness(applicant.profileData);
-
-    res.json({ applicant: { ...applicant.toObject(), completeness } });
+    res.json({ applicant: { ...applicant.toObject(), completeness: checkProfileCompleteness(applicant.profileData) } });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to fetch applicant.", details: error.message });
   }
 };
 
-// Update applicant profile (HR edit)
 export const updateApplicant = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: jobId, applicantId } = req.params;
     const { profileData } = req.body;
-
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
-
     const applicant = await Applicant.findOne({ _id: applicantId, jobId });
     if (!applicant) { res.status(404).json({ error: "Applicant not found." }); return; }
-
     const updatedProfile = { ...applicant.profileData, ...profileData };
     applicant.profileData = updatedProfile;
     await applicant.save();
-
-    const completeness = checkProfileCompleteness(updatedProfile);
-
-    res.json({
-      message: "Applicant profile updated successfully.",
-      applicant: { ...applicant.toObject(), completeness },
-    });
+    res.json({ message: "Profile updated.", applicant: { ...applicant.toObject(), completeness: checkProfileCompleteness(updatedProfile) } });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to update applicant.", details: error.message });
   }
 };
 
-// Delete applicant
 export const deleteApplicant = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: jobId, applicantId } = req.params;
-
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
-
     await Applicant.findOneAndDelete({ _id: applicantId, jobId });
-    res.json({ message: "Applicant deleted successfully." });
+    res.json({ message: "Applicant deleted." });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to delete applicant.", details: error.message });
   }
