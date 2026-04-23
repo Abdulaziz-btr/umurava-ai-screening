@@ -51,7 +51,14 @@ export const applicantsAPI = {
     api.post(`/jobs/${jobId}/applicants`, { applicants }),
   upload: (jobId: string, file: File) => {
     const formData = new FormData();
-    formData.append("file", file);
+    // Force correct MIME type for JSON files
+    const ext = file.name.toLowerCase().split(".").pop();
+    if (ext === "json") {
+      const blob = new Blob([file], { type: "application/json" });
+      formData.append("file", blob, file.name);
+    } else {
+      formData.append("file", file);
+    }
     return api.post(`/jobs/${jobId}/applicants/upload`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
