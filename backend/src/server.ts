@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
 import { config } from "./config";
+import fs from "fs";
+if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
+if (!fs.existsSync("uploads")) { fs.mkdirSync("uploads", { recursive: true }); }
 import { connectDB } from "./config/database";
 import authRoutes from "./routes/auth";
 import jobRoutes from "./routes/jobs";
