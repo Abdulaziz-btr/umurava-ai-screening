@@ -226,9 +226,9 @@ export default function ApplicantProfilePage() {
           ) : (
             <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
               <div><span className="text-gray-500">Name:</span> <span className="text-gray-900 font-medium ml-1">{profile.firstName} {profile.lastName}</span></div>
-              <div><span className="text-gray-500">Email:</span> <span className="text-gray-900 ml-1">{profile.email || "\u2014"}</span></div>
-              <div><span className="text-gray-500">Location:</span> <span className="text-gray-900 ml-1">{profile.location || "\u2014"}</span></div>
-              <div><span className="text-gray-500">Headline:</span> <span className="text-gray-900 ml-1">{profile.headline || "\u2014"}</span></div>
+              <div><span className="text-gray-500">Email:</span> <span className="text-gray-900 ml-1">{profile.email || "—"}</span></div>
+              <div><span className="text-gray-500">Location:</span> <span className="text-gray-900 ml-1">{profile.location || "—"}</span></div>
+              <div><span className="text-gray-500">Headline:</span> <span className="text-gray-900 ml-1">{profile.headline || "—"}</span></div>
               {profile.bio && <div className="col-span-2"><span className="text-gray-500">Bio:</span> <span className="text-gray-700 ml-1">{profile.bio}</span></div>}
             </div>
           )}
@@ -278,8 +278,8 @@ export default function ApplicantProfilePage() {
               {(profile.skills || []).map((s: any, i: number) => (
                 <span key={i} className="px-3 py-1.5 bg-purple-50 text-purple-800 text-sm rounded-lg border border-purple-100">
                   <span className="font-medium">{s.name}</span>
-                  <span className="text-purple-500 ml-1">\u00B7 {s.level}</span>
-                  <span className="text-purple-400 ml-1">\u00B7 {s.yearsOfExperience} yrs</span>
+                  <span className="text-purple-500 ml-1">· {s.level}</span>
+                  <span className="text-purple-400 ml-1">· {s.yearsOfExperience} yrs</span>
                 </span>
               ))}
               {(!profile.skills || profile.skills.length === 0) && <span className="text-sm text-gray-400 italic">No skills listed</span>}
@@ -331,7 +331,7 @@ export default function ApplicantProfilePage() {
                   <div className="w-2 h-2 mt-2 rounded-full bg-green-500 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{exp.role} <span className="font-normal text-gray-500">at {exp.company}</span></p>
-                    <p className="text-xs text-gray-500">{exp.startDate} \u2014 {exp.endDate || "Present"} {exp.isCurrent && <span className="text-green-600 ml-1">(Current)</span>}</p>
+                    <p className="text-xs text-gray-500">{exp.startDate} — {exp.endDate || "Present"} {exp.isCurrent && <span className="text-green-600 ml-1">(Current)</span>}</p>
                     {exp.description && <p className="text-sm text-gray-600 mt-1">{exp.description}</p>}
                     {exp.technologies?.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -394,7 +394,7 @@ export default function ApplicantProfilePage() {
                   <div className="w-2 h-2 mt-2 rounded-full bg-amber-500 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{edu.degree} in {edu.fieldOfStudy}</p>
-                    <p className="text-xs text-gray-500">{edu.institution} \u00B7 {edu.startYear}\u2013{edu.endYear}</p>
+                    <p className="text-xs text-gray-500">{edu.institution} · {edu.startYear}–{edu.endYear}</p>
                   </div>
                 </div>
               ))}
