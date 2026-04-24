@@ -107,7 +107,7 @@ ${JSON.stringify(profiles, null, 2)}
 
 1. Evaluate all ${applicants.length} candidates using the recruiter-defined weights above.
 2. Score each dimension 0-100, then compute weighted matchScore.
-3. Rank by matchScore and return only the top ${shortlistSize}.
+3. Rank by matchScore and return EXACTLY ${shortlistSize} candidates. You MUST fill all ${shortlistSize} slots, even if some candidates are weak fits. Do not skip any slots.
 4. For each shortlisted candidate, provide:
    - 2-4 specific strengths citing actual profile data (skill levels, company names, project titles)
    - 1-3 specific gaps or risks
