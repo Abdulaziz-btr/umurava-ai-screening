@@ -18,7 +18,7 @@ const applicantSchema = new Schema<IApplicant>(
     },
     source: {
       type: String,
-      enum: ["umurava_profile", "csv_upload", "pdf_resume", "url_scrape"],
+      enum: ["umurava_profile", "csv_upload", "pdf_resume", "url_scrape", "json_upload"],
       required: true,
     },
     profileData: {
