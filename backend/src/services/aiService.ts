@@ -105,21 +105,22 @@ ${JSON.stringify(profiles, null, 2)}
 
 ## INSTRUCTIONS
 
-1. Evaluate all ${applicants.length} candidates using the recruiter-defined weights above.
+1. Evaluate ALL ${applicants.length} candidates using the recruiter-defined weights above.
 2. Score each dimension 0-100, then compute weighted matchScore.
-3. Rank by matchScore and return EXACTLY ${shortlistSize} candidates. You MUST fill all ${shortlistSize} slots, even if some candidates are weak fits. Do not skip any slots.
-4. For each shortlisted candidate, provide:
+3. CRITICAL: You MUST return EXACTLY ${Math.min(shortlistSize, applicants.length)} candidates in the shortlist array. Not fewer. Not more. Exactly ${Math.min(shortlistSize, applicants.length)}. Even if a candidate scores 0, include them. Rank weak candidates at the bottom with "Weak Fit" fitLevel.
+4. For each of the ${Math.min(shortlistSize, applicants.length)} shortlisted candidates, provide:
    - 2-4 specific strengths citing actual profile data (skill levels, company names, project titles)
    - 1-3 specific gaps or risks
    - A written recommendation (2-3 sentences)
    - A "fitLevel" classification: "Strong Fit" | "Moderate Fit" | "Weak Fit"
-   - A "confidenceScore" (0-100) reflecting how confident you are in this ranking given data quality
+   - A "confidenceScore" (0-100) reflecting how confident you are given data quality
    - A "vsNextCandidate" explaining WHY this candidate ranks ABOVE the next one (null for last candidate)
 
 5. Projects are CRITICAL — they are evidence that verifies skill claims.
 6. Never use names, gender, or demographics — only qualifications.
+7. REMINDER: The shortlist array MUST contain EXACTLY ${Math.min(shortlistSize, applicants.length)} entries.
 
-## OUTPUT FORMAT (strict JSON, no markdown, no backticks)
+Return ONLY valid JSON (no markdown, no backticks, no explanation):
 
 {
   "shortlist": [
