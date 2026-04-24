@@ -194,12 +194,30 @@ export async function screenCandidates(
       throw new Error("Invalid AI response: missing shortlist array");
     }
 
-    const candidates = parsed.shortlist.map((c: any) => {
+    // Clean up AI response: deduplicate, sort, limit, re-rank
+    const seenIds = new Set<string>();
+    const cleaned = parsed.shortlist
+      .filter((c: any) => {
+        // Remove duplicates by applicantId
+        if (!c.applicantId || seenIds.has(c.applicantId)) return false;
+        seenIds.add(c.applicantId);
+        return true;
+      })
+      .map((c: any) => ({
+        ...c,
+        matchScore: Math.min(100, Math.max(0, c.matchScore || 0)),
+      }))
+      // Sort by matchScore descending (highest first)
+      .sort((a: any, b: any) => b.matchScore - a.matchScore)
+      // Limit to requested shortlist size
+      .slice(0, shortlistSize);
+
+    const candidates = cleaned.map((c: any, index: number) => {
       const applicant = applicants.find((a) => a._id.toString() === c.applicantId);
       const completeness = applicant ? calculateCompleteness(applicant.profileData) : { score: 0, level: "Unknown", missing: [] };
       return {
         applicantId: c.applicantId,
-        rank: c.rank,
+        rank: index + 1,
         matchScore: Math.min(100, Math.max(0, c.matchScore || 0)),
         skillsScore: Math.min(100, Math.max(0, c.skillsScore || 0)),
         experienceScore: Math.min(100, Math.max(0, c.experienceScore || 0)),
