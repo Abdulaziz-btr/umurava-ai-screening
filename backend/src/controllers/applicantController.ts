@@ -3,6 +3,7 @@ import { Applicant, Job } from "../models";
 import { AuthRequest } from "../middleware/auth";
 import { parseCSV, parseExcel, parsePDF, parseJSON } from "../services/fileParser";
 
+
 function checkProfileCompleteness(profileData: any) {
   const checks = [
     { section: "Basic Info", fields: ["firstName", "lastName", "email", "headline", "location"], status: "missing" as string, details: [] as string[], optional: false },
@@ -42,9 +43,11 @@ function checkProfileCompleteness(profileData: any) {
   return { score, completed, total, sections: checks, alerts };
 }
 
+
 function hasMinimumData(profileData: any): boolean {
   return !!(profileData?.firstName || profileData?.lastName || profileData?.fullName);
 }
+
 
 function normalizeProfile(raw: any): any {
   return {
@@ -71,35 +74,61 @@ function getSourceFromMime(mimetype: string, ext: string): string {
   return "csv_upload";
 }
 
-// Add applicants via JSON body (API endpoint)
+
 export const addApplicants = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: jobId } = req.params;
     const { applicants } = req.body;
+   
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
 
-    let added = 0, updated = 0, skipped = 0;
+    let skipped = 0;
+    const bulkOps = [];
+
+  
     for (const a of applicants) {
       const profile = normalizeProfile(a);
       if (!hasMinimumData(profile)) { skipped++; continue; }
+
       if (profile.email) {
-        const existing = await Applicant.findOne({ jobId, "profileData.email": profile.email });
-        if (existing) { existing.profileData = profile; await existing.save(); updated++; continue; }
+        bulkOps.push({
+          updateOne: {
+            filter: { jobId, "profileData.email": profile.email },
+            update: { 
+              $set: { profileData: profile, parsedAt: new Date() },
+              $setOnInsert: { source: "umurava_profile", jobId }
+            },
+            upsert: true // Updates if exists, creates if new
+          }
+        });
+      } else {
+        bulkOps.push({
+          insertOne: {
+            document: { jobId, source: "umurava_profile", profileData: profile, parsedAt: new Date() }
+          }
+        });
       }
-      await Applicant.create({ jobId, source: "umurava_profile", profileData: profile, parsedAt: new Date() });
-      added++;
     }
-    res.status(201).json({ message: added + " added, " + updated + " updated, " + skipped + " skipped.", added, updated, skipped });
+
+    let added = 0, updated = 0;
+    if (bulkOps.length > 0) {
+      const result = await Applicant.bulkWrite(bulkOps as any);
+      added = result.upsertedCount + (result.insertedCount || 0);
+      updated = result.modifiedCount;
+    }
+
+    res.status(201).json({ message: `${added} added, ${updated} updated, ${skipped} skipped.`, added, updated, skipped });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to add applicants.", details: error.message });
   }
 };
 
-// Upload applicants via file (CSV, Excel, PDF, JSON)
 export const uploadApplicants = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: jobId } = req.params;
+    
+    // 1. Authenticate and validate upload request
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
 
@@ -120,6 +149,7 @@ export const uploadApplicants = async (req: AuthRequest, res: Response): Promise
       const parsed = await parsePDF(file.path);
       parsedApplicants = [parsed];
       const p = parsed as any;
+
       if (!p.skills || p.skills.length === 0) extractionWarnings.push("Could not extract skills from PDF");
       if (!p.experience || p.experience.length === 0) extractionWarnings.push("Could not extract work experience from PDF");
       if (!p.education || p.education.length === 0) extractionWarnings.push("Could not extract education from PDF");
@@ -129,8 +159,8 @@ export const uploadApplicants = async (req: AuthRequest, res: Response): Promise
       return;
     }
 
-    let added = 0, updated = 0, skipped = 0;
-    const createdApplicants: any[] = [];
+    let skipped = 0;
+    const bulkOps = [];
     const source = getSourceFromMime(file.mimetype, "." + ext);
 
     for (const raw of parsedApplicants) {
@@ -138,20 +168,45 @@ export const uploadApplicants = async (req: AuthRequest, res: Response): Promise
       if (!hasMinimumData(profile)) { skipped++; continue; }
 
       if (profile.email) {
-        const existing = await Applicant.findOne({ jobId, "profileData.email": profile.email });
-        if (existing) { existing.profileData = profile; await existing.save(); updated++; createdApplicants.push(existing); continue; }
+        bulkOps.push({
+          updateOne: {
+            filter: { jobId, "profileData.email": profile.email },
+            update: { 
+              $set: { profileData: profile, parsedAt: new Date() },
+              $setOnInsert: { 
+                jobId, 
+                source, 
+                rawResumeUrl: file.mimetype === "application/pdf" ? file.path : undefined 
+              }
+            },
+            upsert: true
+          }
+        });
+      } else {
+        bulkOps.push({
+          insertOne: {
+            document: { 
+              jobId, 
+              source, 
+              profileData: profile, 
+              rawResumeUrl: file.mimetype === "application/pdf" ? file.path : undefined, 
+              parsedAt: new Date() 
+            }
+          }
+        });
       }
-
-      const created = await Applicant.create({
-        jobId, source, profileData: profile,
-        rawResumeUrl: file.mimetype === "application/pdf" ? file.path : undefined,
-        parsedAt: new Date(),
-      });
-      added++;
-      createdApplicants.push(created);
     }
 
-    const completenessResults = createdApplicants.map((a: any) => ({
+    let added = 0, updated = 0;
+    if (bulkOps.length > 0) {
+      const bulkResult = await Applicant.bulkWrite(bulkOps as any);
+      added = bulkResult.upsertedCount + (bulkResult.insertedCount || 0);
+      updated = bulkResult.modifiedCount;
+    }
+
+    const finalApplicants = await Applicant.find({ jobId }).sort({ createdAt: -1 });
+
+    const completenessResults = finalApplicants.map((a: any) => ({
       id: a._id, name: (a.profileData.firstName + " " + a.profileData.lastName).trim(),
       completeness: checkProfileCompleteness(a.profileData),
     }));
@@ -164,8 +219,8 @@ export const uploadApplicants = async (req: AuthRequest, res: Response): Promise
 
     res.status(201).json({
       message: parts.join(", ") + ".",
-      added, updated, skipped, total: createdApplicants.length,
-      applicants: createdApplicants,
+      added, updated, skipped, total: finalApplicants.length,
+      applicants: finalApplicants,
       extractionWarnings: extractionWarnings.length > 0 ? extractionWarnings : undefined,
       needsReview: needsReview.length > 0 ? needsReview : undefined,
     });
@@ -174,14 +229,15 @@ export const uploadApplicants = async (req: AuthRequest, res: Response): Promise
   }
 };
 
-// Get all applicants for a job
 export const getApplicants = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id: jobId } = req.params;
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
+    
     const applicants = await Applicant.find({ jobId }).sort({ createdAt: -1 });
     const enriched = applicants.map((a: any) => ({ ...a.toObject(), completeness: checkProfileCompleteness(a.profileData) }));
+    
     res.json({ applicants: enriched, count: enriched.length });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to fetch applicants.", details: error.message });
@@ -193,8 +249,10 @@ export const getApplicantById = async (req: AuthRequest, res: Response): Promise
     const { id: jobId, applicantId } = req.params;
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
+    
     const applicant = await Applicant.findOne({ _id: applicantId, jobId });
     if (!applicant) { res.status(404).json({ error: "Applicant not found." }); return; }
+    
     res.json({ applicant: { ...applicant.toObject(), completeness: checkProfileCompleteness(applicant.profileData) } });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to fetch applicant.", details: error.message });
@@ -205,13 +263,17 @@ export const updateApplicant = async (req: AuthRequest, res: Response): Promise<
   try {
     const { id: jobId, applicantId } = req.params;
     const { profileData } = req.body;
+    
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
+    
     const applicant = await Applicant.findOne({ _id: applicantId, jobId });
     if (!applicant) { res.status(404).json({ error: "Applicant not found." }); return; }
+    
     const updatedProfile = { ...applicant.profileData, ...profileData };
     applicant.profileData = updatedProfile;
     await applicant.save();
+    
     res.json({ message: "Profile updated.", applicant: { ...applicant.toObject(), completeness: checkProfileCompleteness(updatedProfile) } });
   } catch (error: any) {
     res.status(500).json({ error: "Failed to update applicant.", details: error.message });
@@ -223,6 +285,7 @@ export const deleteApplicant = async (req: AuthRequest, res: Response): Promise<
     const { id: jobId, applicantId } = req.params;
     const job = await Job.findOne({ _id: jobId, recruiterId: req.userId });
     if (!job) { res.status(404).json({ error: "Job not found." }); return; }
+    
     await Applicant.findOneAndDelete({ _id: applicantId, jobId });
     res.json({ message: "Applicant deleted." });
   } catch (error: any) {
