@@ -159,7 +159,7 @@ if (token) return null;
             >
               {[
                 { step: "01", icon: FileText, title: "Post your job", desc: "Define the role, required skills, experience level, and education. Set your ideal candidate profile.", color: "blue" },
-                { step: "02", icon: Users, title: "Add candidates", desc: "Upload structured profiles, CSV spreadsheets, or individual PDF resumes. We parse everything automatically.", color: "purple" },
+                { step: "02", icon: Users, title: "Add candidates", desc: "Upload structured profiles, CSV spreadsheets,structured Json or individual PDF resumes. We parse everything automatically.", color: "purple" },
                 { step: "03", icon: Brain, title: "AI screens & ranks", desc: "Gemini AI evaluates every candidate, scores them across 4 dimensions, and returns a ranked shortlist with clear reasoning.", color: "green" },
               ].map((item, i) => (
                 <motion.div
