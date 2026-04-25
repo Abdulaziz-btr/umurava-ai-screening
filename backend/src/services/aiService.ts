@@ -69,6 +69,9 @@ function buildPoolInsights(applicants: any[], job: any) {
 }
 
 function buildPrompt(job: any, applicants: any[], shortlistSize: number, weights: any): string {
+  // THE FIX: Cap the shortlist size so we never ask for more candidates than we actually have!
+  const targetSize = Math.min(shortlistSize, applicants.length);
+
   const profiles = applicants.map((a) => {
     const completeness = calculateCompleteness(a.profileData);
     return {
@@ -107,8 +110,8 @@ ${JSON.stringify(profiles, null, 2)}
 
 1. Evaluate ALL ${applicants.length} candidates using the recruiter-defined weights above.
 2. Score each dimension 0-100, then compute weighted matchScore.
-3. CRITICAL: You MUST return EXACTLY ${shortlistSize} candidates ranked by matchScore. Rank the top ${shortlistSize} from all ${applicants.length} candidates. Include weak fits at the bottom. Do NOT return fewer than ${shortlistSize}.
-4. For each of the ${shortlistSize} shortlisted candidates, provide:
+3. CRITICAL: You MUST return EXACTLY ${targetSize} candidates ranked by matchScore. Rank the top ${targetSize} from all ${applicants.length} candidates. Include weak fits at the bottom. Do NOT return fewer than ${targetSize}.
+4. For each of the ${targetSize} shortlisted candidates, provide:
    - 2-4 specific strengths citing actual profile data (skill levels, company names, project titles)
    - 1-3 specific gaps or risks
    - A written recommendation (2-3 sentences)
@@ -118,7 +121,7 @@ ${JSON.stringify(profiles, null, 2)}
 
 5. Projects are CRITICAL — they are evidence that verifies skill claims.
 6. Never use names, gender, or demographics — only qualifications.
-7. REMINDER: The shortlist array MUST contain EXACTLY ${shortlistSize} entries — one per rank from 1 to ${shortlistSize}.
+7. REMINDER: The shortlist array MUST contain EXACTLY ${targetSize} entries — one per rank from 1 to ${targetSize}.
 
 Return ONLY valid JSON (no markdown, no backticks, no explanation):
 
