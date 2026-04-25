@@ -156,11 +156,24 @@ export async function screenCandidates(
 ) {
   if (!config.geminiApiKey) throw new Error("Gemini API key is not configured.");
 
+  // Make sure we never ask for more candidates than exist
+  const targetSize = Math.min(shortlistSize, applicants.length);
+
   console.log(`[AI] Starting screening for "${job.title}" with ${applicants.length} applicants`);
-  console.log(`[AI] Weights: Skills ${weights.skills}% / Exp ${weights.experience}% / Edu ${weights.education}% / Rel ${weights.relevance}%`);
 
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+  // FIX 1: Enforce valid JSON and raise token limit to 8192.
+  // This fixes the "9 candidates" issue and stops the error notifications!
+  const model = genAI.getGenerativeModel({
+    model: MODEL_NAME,
+    generationConfig: {
+      responseMimeType: "application/json",
+      maxOutputTokens: 8192,
+      temperature: 0.2, // Keeps AI strictly focused
+    }
+  });
+
   const prompt = buildPrompt(job, applicants, shortlistSize, weights);
   const poolInsights = buildPoolInsights(applicants, job);
 
@@ -186,22 +199,28 @@ export async function screenCandidates(
 
     if (!result) throw lastError || new Error("All retries failed");
 
-    const text = result.response.text();
+    let text = result.response.text();
     console.log(`[AI] Response length: ${text.length}`);
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON found in AI response");
+    // FIX 2: Bulletproof JSON parsing to prevent crashes
+    text = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const startIndex = text.indexOf("{");
+    const endIndex = text.lastIndexOf("}");
+    if (startIndex === -1 || endIndex === -1) {
+         throw new Error("AI failed to return valid JSON format. Please try again.");
+    }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const cleanJson = text.substring(startIndex, endIndex + 1);
+    const parsed = JSON.parse(cleanJson);
+
     if (!parsed.shortlist || !Array.isArray(parsed.shortlist)) {
       throw new Error("Invalid AI response: missing shortlist array");
     }
 
-    // Clean up AI response: deduplicate, sort, limit, re-rank
+    // Clean up AI response: deduplicate, sort, limit
     const seenIds = new Set<string>();
     const cleaned = parsed.shortlist
       .filter((c: any) => {
-        // Remove duplicates by applicantId
         if (!c.applicantId || seenIds.has(c.applicantId)) return false;
         seenIds.add(c.applicantId);
         return true;
@@ -210,10 +229,8 @@ export async function screenCandidates(
         ...c,
         matchScore: Math.min(100, Math.max(0, c.matchScore || 0)),
       }))
-      // Sort by matchScore descending (highest first)
       .sort((a: any, b: any) => b.matchScore - a.matchScore)
-      // Limit to requested shortlist size
-      .slice(0, shortlistSize);
+      .slice(0, targetSize);
 
     const candidates = cleaned.map((c: any, index: number) => {
       const applicant = applicants.find((a) => a._id.toString() === c.applicantId);
