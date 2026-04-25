@@ -210,7 +210,7 @@ if (token) return null;
                 { icon: Shield, title: "Bias-free evaluation", desc: "AI evaluates based on qualifications only. No names, gender, or demographics considered." },
                 { icon: Zap, title: "Batch processing", desc: "Screen 100+ candidates in a single run. Results in under 60 seconds." },
                 { icon: CheckCircle, title: "Transparent reasoning", desc: "Every shortlisted candidate includes clear strengths, gaps, and a written recommendation." },
-                { icon: FileText, title: "Multi-format intake", desc: "Structured profiles, CSV spreadsheets, Excel files, and PDF resumes — all supported." },
+                { icon: FileText, title: "Multi-format intake", desc: "Structured profiles, CSV spreadsheets, Json, Excel files, and PDF resumes — all supported." },
                 { icon: Users, title: "Human-in-the-loop", desc: "AI recommends, you decide. The final hiring decision always stays with the recruiter." },
               ].map((f, i) => (
                 <motion.div
