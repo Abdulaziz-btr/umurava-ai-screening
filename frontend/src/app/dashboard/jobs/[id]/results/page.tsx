@@ -48,16 +48,19 @@ const candidates = allCandidates
     return { name: `Candidate #${c.rank}`, headline: "", initials: "?" };
   };
 
-  if (loading) {
+if (loading || (!results && !candidates.length && !currentJob)) {
     return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <div className="animate-spin h-10 w-10 border-4 border-purple-600 border-t-transparent rounded-full mb-4" />
-        <p className="text-gray-600 animate-pulse">Loading AI results...</p>
+      <div className="max-w-4xl mx-auto flex flex-col items-center justify-center py-24">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-6"></div>
+          <p className="text-lg text-gray-600 font-medium text-center">Evaluating candidates with AI...</p>
+          <p className="text-sm text-gray-500 text-center mt-2">This usually takes 30-60 seconds</p>
+        </motion.div>
       </div>
     );
   }
 
-  if (!results && !candidates.length) {
+  if (!results || !candidates.length) {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-6">
