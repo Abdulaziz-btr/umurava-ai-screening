@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store";
 import { fetchScreeningResults, fetchJob } from "@/store/jobsSlice";
 import { useRouter, useParams } from "next/navigation";
-import { Trophy, ChevronDown, ChevronUp, Star, AlertTriangle, MessageSquare, Shield, BarChart3, GitCompare, ChevronRight } from "lucide-react";
+import { Trophy, ChevronDown, ChevronUp, Star, AlertTriangle, MessageSquare, Shield, BarChart3, GitCompare, ChevronRight, AlertCircle, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function ResultsPage() {
@@ -14,22 +14,34 @@ export default function ResultsPage() {
   const jobId = id as string;
   const { currentJob, screeningResults, loading } = useSelector((state: RootState) => state.jobs);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true); // Added to prevent 'No Results' flash
 
   useEffect(() => {
-    dispatch(fetchJob(jobId));
-    dispatch(fetchScreeningResults(jobId));
+    const fetchAllData = async () => {
+      setIsInitializing(true);
+      await Promise.all([
+        dispatch(fetchJob(jobId)),
+        dispatch(fetchScreeningResults(jobId))
+      ]);
+      setIsInitializing(false);
+    };
+
+    fetchAllData();
   }, [dispatch, jobId]);
 
   const results = Array.isArray(screeningResults) ? screeningResults[0] : screeningResults;
   const allCandidates = results?.candidates || [];
-const candidates = allCandidates
-  .filter((c: any) => {
-    const a = c.applicantId;
-    return typeof a === "object" && a?.profileData?.firstName;
-  })
-  .map((c: any, i: number) => ({ ...c, rank: i + 1 }));
+  const candidates = allCandidates
+    .filter((c: any) => {
+      const a = c.applicantId;
+      return typeof a === "object" && a?.profileData?.firstName;
+    })
+    .map((c: any, i: number) => ({ ...c, rank: i + 1 }));
   const poolInsights = results?.poolInsights;
   const weights = results?.weights;
+
+  // Assume standard target sizes are 10 or 20. Default to 10 for warning logic.
+  const targetSize = results?.shortlistSize || 10; 
 
   const scoreColor = (s: number) => s >= 80 ? "text-green-600 bg-green-50" : s >= 60 ? "text-blue-600 bg-blue-50" : s >= 40 ? "text-amber-600 bg-amber-50" : "text-red-600 bg-red-50";
   const fitColor = (f: string) => f === "Strong Fit" ? "bg-green-100 text-green-800" : f === "Moderate Fit" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800";
@@ -48,13 +60,12 @@ const candidates = allCandidates
     return { name: `Candidate #${c.rank}`, headline: "", initials: "?" };
   };
 
-if (loading || (!results && !candidates.length && !currentJob)) {
+  if (loading || isInitializing) {
     return (
       <div className="max-w-4xl mx-auto flex flex-col items-center justify-center py-24">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-6"></div>
-          <p className="text-lg text-gray-600 font-medium text-center">Evaluating candidates with AI...</p>
-          <p className="text-sm text-gray-500 text-center mt-2">This usually takes 30-60 seconds</p>
+          <p className="text-lg text-gray-600 font-medium text-center">Fetching AI results...</p>
         </motion.div>
       </div>
     );
@@ -162,6 +173,36 @@ if (loading || (!results && !candidates.length && !currentJob)) {
           <span className="font-medium">Weights used:</span> Skills {weights.skills}% · Experience {weights.experience}% · Education {weights.education}% · Relevance {weights.relevance}%
         </div>
       )}
+
+      {/* --- PROFESSIONAL NOTIFICATION BANNER START --- */}
+      {candidates.length > 0 && poolInsights?.totalApplicants > 0 && (
+        candidates.length < Math.min(targetSize, poolInsights.totalApplicants) && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }} 
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 flex items-start gap-3 shadow-sm"
+          >
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-amber-900">
+                Showing {candidates.length} of {Math.min(targetSize, poolInsights.totalApplicants)} requested candidates
+              </h4>
+              <p className="text-sm text-amber-700 mt-1 leading-relaxed">
+                To maintain strict data integrity, our system automatically filtered out duplicate profiles or invalid formatting from the AI's output. You can review these verified candidates below, or run a fresh screening to generate a complete list.
+              </p>
+            </div>
+            
+            <button 
+              onClick={() => router.push(`/dashboard/jobs/${jobId}/screen`)}
+              className="flex items-center gap-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-2 rounded-lg font-medium transition whitespace-nowrap"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Re-screen
+            </button>
+          </motion.div>
+        )
+      )}
+      {/* --- PROFESSIONAL NOTIFICATION BANNER END --- */}
 
       {/* Candidates */}
       <div className="space-y-3">
